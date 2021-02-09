@@ -9,7 +9,6 @@ Created on Tue Feb  9 10:08:54 2021
 
 import numpy as np
 import matplotlib.pyplot as plt
-import tensorflow as tf
 from tensorflow import keras
 from sklearn import preprocessing
 from sklearn.model_selection import KFold
@@ -53,12 +52,13 @@ def KFold_iteration_Basic(Z, layers, n_splits):
     return all_accuracies, test_accuracies
 
 all_layers = [
-    [2,2,1], [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
-    [2,2,2,1], [2,2,4,1], [2,2,6,1]
+    [2,2,1]#, [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
+    #[2,2,2,1], [2,2,4,1], [2,2,6,1]
 ]
 
 n_splits = 10
 
+print("Basic NN")
 for i in range(len(all_layers)):
     layers = all_layers[i]
     
@@ -94,9 +94,9 @@ def KFold_iteration_Keras(Z, layers, n_splits):
         
         #RUN NN
         model = keras.Model(inputs=inputs, outputs=outputs)
-        model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=1e-4, momentum=0.0),
-              loss=tf.keras.losses.MeanSquaredError(),
-             metrics=[tf.keras.metrics.BinaryAccuracy()])
+        model.compile(optimizer=keras.optimizers.SGD(learning_rate=1e-4, momentum=0.0),
+              loss=keras.losses.MeanSquaredError(),
+             metrics=[keras.metrics.BinaryAccuracy()])
         
         X_train, y_train = Z_train[:,:-1], Z_train[:,-1]
         y_train = y_train.reshape(-1,1)
@@ -116,12 +116,13 @@ def KFold_iteration_Keras(Z, layers, n_splits):
     return all_accuracies, test_accuracies
 
 all_layers = [
-    [2,2,1], [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
-    [2,2,2,1], [2,2,4,1], [2,2,6,1]
+    [2,2,1]#, [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
+    #[2,2,2,1], [2,2,4,1], [2,2,6,1]
 ]
 
 n_splits = 10
 
+print("Keras NN")
 for i in range(len(all_layers)):
     layers = all_layers[i]
     
