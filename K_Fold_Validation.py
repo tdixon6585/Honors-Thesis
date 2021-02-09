@@ -9,10 +9,15 @@ Created on Tue Feb  9 10:08:54 2021
 
 import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow import keras
 from sklearn import preprocessing
 from sklearn.model_selection import KFold
 import NN_functions as NN_p
+
+print("CLEAR 1")
+
+from tensorflow import keras
+
+print("CLEAR 2")
 
 num_data_points = 100
 Z = NN_p.create_data(num_data_points)
