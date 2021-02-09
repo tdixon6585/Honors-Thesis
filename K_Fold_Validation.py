@@ -15,7 +15,7 @@ import NN_functions as NN_p
 from tensorflow import keras
 
 
-num_data_points = 100
+num_data_points = 1000
 Z = NN_p.create_data(num_data_points)
 
 X = Z[:,:-1]
@@ -53,14 +53,14 @@ def KFold_iteration_Basic(Z, layers, n_splits):
     return all_accuracies, test_accuracies
 
 all_layers = [
-    [2,2,1]#, [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
-    #[2,2,2,1], [2,2,4,1], [2,2,6,1]
+    [2,2,1], [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
+    [2,2,2,1], [2,2,4,1], [2,2,6,1]
 ]
 
 n_splits = 10
 
 f = open("K_Fold_Accuracies.txt", "w")
-f.write(f"Layers\tTesting Accuracy\tTraining Accuracy")
+f.write(f"\nLayers\tTesting Accuracy\tTraining Accuracy")
 
 print("Basic NN")
 for i in range(len(all_layers)):
@@ -74,7 +74,7 @@ for i in range(len(all_layers)):
     train_acc = np.array(all_accs)[:,-1].mean()
     print("Testing accuracies: ", test_acc)
     print("Training accuracies: ", train_acc)
-    f.write(f"B\t{layers}\t{test_acc}\t{train_acc}")
+    f.write(f"\nB\t{layers}\t{round(test_acc,3)}\t{round(train_acc,3)}")
     
     
 def KFold_iteration_Keras(Z, layers, n_splits):
@@ -125,8 +125,8 @@ def KFold_iteration_Keras(Z, layers, n_splits):
     return all_accuracies, test_accuracies
 
 all_layers = [
-    [2,2,1]#, [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
-    #[2,2,2,1], [2,2,4,1], [2,2,6,1]
+    [2,2,1], [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
+    [2,2,2,1], [2,2,4,1], [2,2,6,1]
 ]
 
 n_splits = 10
@@ -144,6 +144,6 @@ for i in range(len(all_layers)):
     print(layers)
     print("Testing accuracies: ", test_acc)
     print("Training accuracies: ", train_acc)
-    f.write(f"K\t{layers}\t{test_acc}\t{train_acc}")
+    f.write(f"\nK\t{layers}\t{round(test_acc,3)}\t{round(train_acc,3)}")
     
 f.close()
