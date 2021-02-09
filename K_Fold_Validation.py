@@ -12,12 +12,8 @@ import matplotlib.pyplot as plt
 from sklearn import preprocessing
 from sklearn.model_selection import KFold
 import NN_functions as NN_p
-
-print("CLEAR 1")
-
 from tensorflow import keras
 
-print("CLEAR 2")
 
 num_data_points = 100
 Z = NN_p.create_data(num_data_points)
@@ -63,6 +59,9 @@ all_layers = [
 
 n_splits = 10
 
+f = open("K_Fold_Accuracies.txt", "w")
+f.write(f"Layers\tTesting Accuracy\tTraining Accuracy")
+
 print("Basic NN")
 for i in range(len(all_layers)):
     layers = all_layers[i]
@@ -70,8 +69,13 @@ for i in range(len(all_layers)):
     
     all_accs, test_accs = KFold_iteration_Basic(Z, layers, n_splits)
     print(layers)
-    print("Testing accuracies: ", np.array(test_accs).mean())
-    print("Training accuracies: ", np.array(all_accs)[:,-1].mean())
+    
+    test_acc = np.array(test_accs).mean()
+    train_acc = np.array(all_accs)[:,-1].mean()
+    print("Testing accuracies: ", test_acc)
+    print("Training accuracies: ", train_acc)
+    f.write(f"B\t{layers}\t{test_acc}\t{train_acc}")
+    
     
 def KFold_iteration_Keras(Z, layers, n_splits):
     cv = KFold(n_splits=n_splits, shuffle=False)
@@ -133,6 +137,13 @@ for i in range(len(all_layers)):
     
     
     all_accs, test_accs = KFold_iteration_Keras(Z, layers, n_splits)
+    
+    test_acc = np.array(test_accs)[:,1].mean()
+    train_acc = np.mean([i.history['binary_accuracy'][-1] for i in all_accs])
+    
     print(layers)
-    print("Testing accuracies: ", np.array(test_accs)[:,1].mean())
-    print("Training accuracies: ", np.mean([i.history['binary_accuracy'][-1] for i in all_accs]))
+    print("Testing accuracies: ", test_acc)
+    print("Training accuracies: ", train_acc)
+    f.write(f"K\t{layers}\t{test_acc}\t{train_acc}")
+    
+f.close()
