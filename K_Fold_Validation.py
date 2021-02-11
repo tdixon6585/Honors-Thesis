@@ -124,7 +124,7 @@ def run_Network(tup):
     print("Keras Testing accuracies: ", Ktest_acc)
     print("Keras Training accuracies: ", Ktrain_acc)
     
-    return (Btest_acc, Btrain_acc, Ktest_acc, Ktrain_acc)
+    return (layers, learning_rate, round(Btest_acc,3), round(Btrain_acc,3), round(Ktest_acc,3), round(Ktrain_acc,3))
     
     #fB.write(f"\n{layers}\t{round(test_acc,3)}\t{round(train_acc,3)}")
     #fB.flush()
@@ -153,10 +153,14 @@ results = p.map(run_Network,input_array)
 
 print("DONE!")
 print(results)
+#%%
+f = open("K_Fold_Accuracies.txt", "w")
+f.write("\nLayers\tlearning_rate\tBtest_acc\tBtrain_acc\tKtest_acc\tKtrain_acc")
 
-#f = open("K_Fold_Accuracies.txt", "w")
-#fB.write(f"\nLayers\tTesting Accuracy\tTraining Accuracy")
+for r in results:
+    f.write(f"\n")
+    for e in r:
+        f.write(f"{e}\t")
 
     
-#fB.close()
-#fK.close()
+f.close()
