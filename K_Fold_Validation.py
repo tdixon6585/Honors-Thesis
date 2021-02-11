@@ -13,9 +13,13 @@ from sklearn import preprocessing
 from sklearn.model_selection import KFold
 import NN_functions as NN_p
 from tensorflow import keras
+import multiprocessing
+import os
+
+#%%
 
 
-num_data_points = 1000
+num_data_points = 100
 Z = NN_p.create_data(num_data_points)
 
 X = Z[:,:-1]
@@ -51,30 +55,6 @@ def KFold_iteration_Basic(Z, layers, n_splits):
         test_accuracies.append(acc)
     
     return all_accuracies, test_accuracies
-
-all_layers = [
-    [2,2,1], [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
-    [2,2,2,1], [2,2,4,1], [2,2,6,1]
-]
-
-n_splits = 10
-
-f = open("K_Fold_Accuracies.txt", "w")
-f.write(f"\nLayers\tTesting Accuracy\tTraining Accuracy")
-
-print("Basic NN")
-for i in range(len(all_layers)):
-    layers = all_layers[i]
-    
-    
-    all_accs, test_accs = KFold_iteration_Basic(Z, layers, n_splits)
-    print(layers)
-    
-    test_acc = np.array(test_accs).mean()
-    train_acc = np.array(all_accs)[:,-1].mean()
-    print("Testing accuracies: ", test_acc)
-    print("Training accuracies: ", train_acc)
-    f.write(f"\nB\t{layers}\t{round(test_acc,3)}\t{round(train_acc,3)}")
     
     
 def KFold_iteration_Keras(Z, layers, n_splits):
@@ -103,7 +83,7 @@ def KFold_iteration_Keras(Z, layers, n_splits):
         
         #RUN NN
         model = keras.Model(inputs=inputs, outputs=outputs)
-        model.compile(optimizer=keras.optimizers.SGD(learning_rate=1e-4, momentum=0.0),
+        model.compile(optimizer=keras.optimizers.SGD(learning_rate=0.1, momentum=0.0),
               loss=keras.losses.MeanSquaredError(),
              metrics=[keras.metrics.BinaryAccuracy()])
         
@@ -124,26 +104,83 @@ def KFold_iteration_Keras(Z, layers, n_splits):
     
     return all_accuracies, test_accuracies
 
+
+def run_Basic(fB):
+    all_test_accs = []
+    all_train_accs = []
+    
+    print("Basic NN")
+    for i in range(len(all_layers)):
+        layers = all_layers[i]
+        
+        
+        all_accs, test_accs = KFold_iteration_Basic(Z, layers, n_splits)
+        print(layers)
+        
+        test_acc = np.array(test_accs).mean()
+        train_acc = np.array(all_accs)[:,-1].mean()
+        
+        all_test_accs.append(test_acc)
+        all_train_accs.append(train_acc)
+        
+        print("Testing accuracies: ", test_acc)
+        print("Training accuracies: ", train_acc)
+    
+    fB.write(f"\n{layers}\t{round(test_acc,3)}\t{round(train_acc,3)}")
+    fB.flush()
+        
+        
+def run_Keras(fK):
+    all_test_accs = []
+    all_train_accs = []
+    
+    print("Keras NN")
+    for i in range(len(all_layers)):
+        layers = all_layers[i]
+        
+        
+        all_accs, test_accs = KFold_iteration_Keras(Z, layers, n_splits)
+        
+        test_acc = np.array(test_accs)[:,1].mean()
+        train_acc = np.mean([i.history['binary_accuracy'][-1] for i in all_accs])
+        
+        all_test_accs.append(test_acc)
+        all_train_accs.append(train_acc)
+        
+        print(layers)
+        print("Testing accuracies: ", test_acc)
+        print("Training accuracies: ", train_acc)
+    
+    fK.write(f"\n{layers}\t{round(test_acc,3)}\t{round(train_acc,3)}")
+    fK.flush()
+
+
+#%%
+
 all_layers = [
-    [2,2,1], [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
-    [2,2,2,1], [2,2,4,1], [2,2,6,1]
+    [2,2,1]#, [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
+    #[2,2,2,1], [2,2,4,1], [2,2,6,1]
 ]
 
-n_splits = 10
+learning_rates = [1e-1]#,1e-2,1e-3,1e-4,1e-5,1e-6]
 
-print("Keras NN")
-for i in range(len(all_layers)):
-    layers = all_layers[i]
+n_splits = 2
+
+fB = open("K_Fold_Accuracies_Basic.txt", "w")
+fK = open("K_Fold_Accuracies_Keras.txt", "w")
+fB.write(f"\nLayers\tTesting Accuracy\tTraining Accuracy")
+fK.write(f"\nLayers\tTesting Accuracy\tTraining Accuracy")
+
+
+p1 = multiprocessing.Process(target=run_Basic, args=(fB,))
+p2 = multiprocessing.Process(target=run_Keras, args=(fK,))
+
+
+p1.start()
+p2.start()
+
+p1.join()
+p2.join()
     
-    
-    all_accs, test_accs = KFold_iteration_Keras(Z, layers, n_splits)
-    
-    test_acc = np.array(test_accs)[:,1].mean()
-    train_acc = np.mean([i.history['binary_accuracy'][-1] for i in all_accs])
-    
-    print(layers)
-    print("Testing accuracies: ", test_acc)
-    print("Training accuracies: ", train_acc)
-    f.write(f"\nK\t{layers}\t{round(test_acc,3)}\t{round(train_acc,3)}")
-    
-f.close()
+fB.close()
+fK.close()
