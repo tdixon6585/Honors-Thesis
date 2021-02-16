@@ -19,7 +19,7 @@ import os
 #%%
 
 
-num_data_points = 100
+num_data_points = 1000
 Z = NN_p.create_data(num_data_points)
 
 X = Z[:,:-1]
@@ -62,6 +62,8 @@ def KFold_iteration_Keras(Z, layers, n_splits, learning_rate):
 
     all_accuracies = []
     test_accuracies = []
+    print(os.getpid())
+    print(layers, learning_rate)
     for i, (train_index, test_index) in enumerate(cv.split(Z)):
         #print("Train Index: ", train_index, "\n")
         #print("Test Index: ", test_index)
@@ -133,21 +135,21 @@ def run_Network(tup):
 #%%
 
 all_layers = [
-    [2,2,1], [2,3,1]#, [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
-    #[2,2,2,1], [2,2,4,1], [2,2,6,1]
+    [2,2,1], [2,3,1], [2,4,1], [2,5,1], [2,6,1], [2,7,1], [2,8,1],
+    [2,2,2,1], [2,2,4,1], [2,2,6,1]
 ]
 
-learning_rates = [1e-1,1e-2]#,1e-3,1e-4,1e-5,1e-6]
+learning_rates = [1e-1,1e-2,1e-3,1e-4,1e-5,1e-6,1e-7]
 
 input_array = [(x,y) for x in all_layers for y in learning_rates]
 
 #%%
 
-n_splits = 2
+n_splits = 10
 
 
 
-p = multiprocessing.Pool(4)
+p = multiprocessing.Pool()
 
 results = p.map(run_Network,input_array)
 
