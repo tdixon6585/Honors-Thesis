@@ -13,6 +13,7 @@ import tensorflow as tf
 from tensorflow import keras
 import RK4_numba as RK4
 import random
+import time
 
 r = RK4.Rocket()
 
@@ -157,7 +158,7 @@ def train(replay_memory):
 
 
 
-epochs = 5
+epochs = 10
 greed = 1
 greed_decay = 0.99
 discount_factor = 0.8
@@ -169,6 +170,7 @@ all_RX = []
 all_RY = []
 all_rewards =[]
 
+start = time.time()
 for i in range(epochs):
     print("EPOCH: ", i)
     r = RK4.Rocket()
@@ -207,6 +209,9 @@ for i in range(epochs):
     if i % 10 == 0:
         all_RX.append(RX)
         all_RY.append(RY)
+        
+end = time.time()
+print('Total Time:', start-end)
         
         
         
