@@ -215,7 +215,7 @@ print('Total Time:', start-end)
         
         
         
-model.save('./Model_Q_Learning')
+model.save('./Model_Q_Learning.ms')
 np.savetxt('all_RX.csv', all_RX, delimiter=',')
 np.savetxt('all_RY.csv', all_RY, delimiter=',')
 np.savetxt('all_rewards.csv', all_rewards, delimiter=',')
