@@ -54,6 +54,11 @@ def step(r, action):
         throttle = 1
     elif throttle < 0:
         throttle = 0
+        
+    if angle > 2*np.pi:
+        angle = angle - 2*np.pi
+    elif angle < 0:
+        angle = angle + 2*np.pi
 
     
     #OUT OF FUEL
@@ -88,7 +93,7 @@ actions = {
 '''
 
 def reward_1(state):
-    rx, ry, vx, vy, m, has_staged = state[0]
+    rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
     
     x = np.sqrt(rx**2+ry**2)
     v = np.sqrt(vx**2+vy**2)
@@ -104,7 +109,7 @@ def reward_1(state):
     return rw_x + rw_v + rw_m + punish
 
 def reward_2(state):
-    rx, ry, vx, vy, m, has_staged = state[0]
+    rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
     
     x = np.sqrt(rx**2+ry**2)
     
@@ -114,7 +119,7 @@ def reward_2(state):
     return rw_x + punish
 
 def reward_3(state):
-    rx, ry, vx, vy, m, has_staged = state[0]
+    rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
     
     x = np.sqrt(rx**2+ry**2)
     
@@ -123,7 +128,7 @@ def reward_3(state):
     return rw_x
 
 
-inputs = keras.Input(shape=(6))
+inputs = keras.Input(shape=(8))
 x = keras.layers.Dense(64, activation="relu")(inputs)
 x = keras.layers.Dense(32, activation="relu")(x)
 outputs = keras.layers.Dense(5, activation="linear")(x)
@@ -166,7 +171,7 @@ greed_decay = .99
 discount_factor = 0.8
 
 replay_memory = []
-max_mem_size = 80000
+max_mem_size = 10000
 
 all_RX = []
 all_RY = []
@@ -174,8 +179,9 @@ all_rewards =[]
 
 for i in range(epochs):
     print("EPOCH: ", i)
+    print("replay_memory: ", len(replay_memory))
     r = RK4.Rocket()
-    state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged)]])
+    state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
     greed *= greed_decay
     
     RX = []
@@ -196,12 +202,12 @@ for i in range(epochs):
             
         r, done = step(r, action)
 
-        new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged)]])
+        new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
         reward = reward_2(state)
         rewards.append(reward)
         
         if len(replay_memory) > max_mem_size:
-            replay_memory.pop(random.randrange(len(replay_memory)))
+            replay_memory.pop(0)
         replay_memory.append({'s': state[0], 'a': action, 'r': reward, "s_p": new_state[0], 'done': done})
         
         model = train(replay_memory)
