@@ -91,6 +91,8 @@ actions = {
 (do nothing)
 }
 '''
+k = 10000
+
 
 def reward_1(state):
     rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
@@ -114,9 +116,9 @@ def reward_2(state):
     x = np.sqrt(rx**2+ry**2)
     
     rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
-    punish = -np.exp(-1*(x-r.sea)**2/(2*4000**2))
+    punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
     
-    return rw_x + punish
+    return k*rw_x + k*punish
 
 def reward_3(state):
     rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
@@ -141,8 +143,8 @@ model.compile(optimizer=tf.keras.optimizers.Adam(),
 
 
 
-def train(replay_memory):
-    batch = np.random.choice(replay_memory, 32, replace=True)
+def train(replay_memory, batch_size):
+    batch = np.random.choice(replay_memory, batch_size, replace=True)
     
     s_p = np.array(list(map(lambda x: x['s_p'], batch)))
     s = np.array(list(map(lambda x: x['s'], batch)))
@@ -160,29 +162,32 @@ def train(replay_memory):
         else:         target = r
         targets[i][a] = target
 
-    model.fit(s, targets, epochs=1, verbose=0)
-    return model
+    h = model.fit(s, targets, epochs=1, verbose=0)
+    return model, h.history['loss'][0]
 
 
 
 epochs = 300
 greed = 1
-greed_decay = .99
-discount_factor = 0.8
+greed_decay = 0.002
+discount_factor = 0.999
 
 replay_memory = []
-max_mem_size = 10000
+max_mem_size = 100000
+batch_size = 32
 
 all_RX = []
 all_RY = []
 all_rewards =[]
+all_loss = []
 
 for i in range(epochs):
     print("EPOCH: ", i)
     print("replay_memory: ", len(replay_memory))
     r = RK4.Rocket()
     state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
-    greed *= greed_decay
+    if greed > 0.01:
+        greed -= greed_decay
     
     RX = []
     RY = []
@@ -210,8 +215,9 @@ for i in range(epochs):
             replay_memory.pop(0)
         replay_memory.append({'s': state[0], 'a': action, 'r': reward, "s_p": new_state[0], 'done': done})
         
-        model = train(replay_memory)
+        model, l = train(replay_memory, batch_size)
         state = new_state
+        all_loss.append(l)
             
         
     all_rewards.append(sum(rewards))
@@ -226,6 +232,7 @@ model.save('./Model_Q_Learning.ms')
 np.savetxt('all_RX.txt', all_RX, fmt='%s')
 np.savetxt('all_RY.txt', all_RY, fmt='%s')
 np.savetxt('all_rewards.txt', all_rewards, fmt='%s')
+np.savetxt('all_loss.txt', all_loss, fmt='%s')
 
 
 
