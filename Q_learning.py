@@ -124,13 +124,13 @@ def reward_3(state):
 
 
 inputs = keras.Input(shape=(6))
-x = keras.layers.Dense(16, activation="relu")(inputs)
+x = keras.layers.Dense(64, activation="relu")(inputs)
 x = keras.layers.Dense(32, activation="relu")(x)
-outputs = keras.layers.Dense(5, activation=None)(x)
+outputs = keras.layers.Dense(5, activation="linear")(x)
 
 model = keras.Model(inputs=inputs, outputs=outputs)
 
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-3),
+model.compile(optimizer=tf.keras.optimizers.Adam(),
               loss="mean_squared_error")
 
 
@@ -143,7 +143,9 @@ def train(replay_memory):
     s = np.array(list(map(lambda x: x['s'], batch)))
     
     q_s_p = model.predict(s_p)
+
     targets = model.predict(s)
+
     
     for i,m in enumerate(batch): 
         a = m['a']
@@ -158,13 +160,13 @@ def train(replay_memory):
 
 
 
-epochs = 1000
+epochs = 300
 greed = 1
-greed_decay = 1
+greed_decay = .99
 discount_factor = 0.8
 
 replay_memory = []
-max_mem_size = 8000
+max_mem_size = 80000
 
 all_RX = []
 all_RY = []
@@ -183,6 +185,7 @@ for i in range(epochs):
     done = False
 
     while not done:
+    
         if np.random.random() < greed:
             action = np.random.randint(0, 5)
         else:
@@ -194,7 +197,7 @@ for i in range(epochs):
         r, done = step(r, action)
 
         new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged)]])
-        reward = reward_3(state)
+        reward = reward_2(state)
         rewards.append(reward)
         
         if len(replay_memory) > max_mem_size:
