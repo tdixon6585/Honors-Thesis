@@ -158,19 +158,18 @@ def train(replay_memory):
 
 
 
-epochs = 10
+epochs = 1000
 greed = 1
-greed_decay = 0.99
+greed_decay = 1
 discount_factor = 0.8
 
 replay_memory = []
-max_mem_size = 800000
+max_mem_size = 8000
 
 all_RX = []
 all_RY = []
 all_rewards =[]
 
-start = time.time()
 for i in range(epochs):
     print("EPOCH: ", i)
     r = RK4.Rocket()
@@ -182,6 +181,7 @@ for i in range(epochs):
     rewards = []
 
     done = False
+
     while not done:
         if np.random.random() < greed:
             action = np.random.randint(0, 5)
@@ -192,6 +192,7 @@ for i in range(epochs):
         RY.append(r.ry)
             
         r, done = step(r, action)
+
         new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged)]])
         reward = reward_3(state)
         rewards.append(reward)
@@ -210,15 +211,12 @@ for i in range(epochs):
         all_RX.append(RX)
         all_RY.append(RY)
         
-end = time.time()
-print('Total Time:', start-end)
-        
-        
+
         
 model.save('./Model_Q_Learning.ms')
-np.savetxt('all_RX.csv', all_RX, delimiter=',')
-np.savetxt('all_RY.csv', all_RY, delimiter=',')
-np.savetxt('all_rewards.csv', all_rewards, delimiter=',')
+np.savetxt('all_RX.txt', all_RX, fmt='%s')
+np.savetxt('all_RY.txt', all_RY, fmt='%s')
+np.savetxt('all_rewards.txt', all_rewards, fmt='%s')
 
 
 
