@@ -94,10 +94,15 @@ outputs = keras.layers.Dense(5, activation="linear")(x)
 
 model = keras.Model(inputs=inputs, outputs=outputs)
 
+target_model = keras.Model(inputs=inputs, outputs=outputs)
+
 model.compile(optimizer=tf.keras.optimizers.Adam(),
               loss="mean_squared_error")
 
+target_model.compile(optimizer=tf.keras.optimizers.Adam(),
+              loss="mean_squared_error")
 
+target_model.set_weights(model.get_weights())
 
 
 def train(replay_memory, batch_size):
@@ -106,9 +111,18 @@ def train(replay_memory, batch_size):
     s_p = np.array(list(map(lambda x: x['s_p'], batch)))
     s = np.array(list(map(lambda x: x['s'], batch)))
     
-    q_s_p = model.predict(s_p)
+    
+    #Potentially impliment Double DQN
+    # Use the main model to make the future choice 
+    #  best_actions = model.predict(s_p)
+    #  best_actions.argmax() or something like this
+    # Use the target model to estimate Q-Value of that choice
+    #  q_s_p = target_model.predict(s_p)
+    #  make q_s_p only contains the actions chosen from the main model
+    #  np.max is no longer necessary
+    q_s_p = target_model.predict(s_p)
 
-    targets = model.predict(s)
+    targets = target_model.predict(s)
 
     
     for i,m in enumerate(batch): 
@@ -134,10 +148,14 @@ replay_memory = []
 max_mem_size = 100000
 batch_size = 32
 
+sync_target_steps = 5000
+
 all_RX = []
 all_RY = []
 all_rewards =[]
 all_loss = []
+
+c = 0
 
 for i in range(epochs):
     print("EPOCH: ", i)
@@ -154,7 +172,6 @@ for i in range(epochs):
     done = False
 
     while not done:
-    
         if np.random.random() < greed:
             action = np.random.randint(0, 5)
         else:
@@ -174,6 +191,12 @@ for i in range(epochs):
         replay_memory.append({'s': state[0], 'a': action, 'r': reward, "s_p": new_state[0], 'done': done})
         
         model, l = train(replay_memory, batch_size)
+        
+        c+=1
+        
+        if c % sync_target_steps == 0:
+            target_model.set_weights(model.get_weights())
+        
         state = new_state
         all_loss.append(l)
             
