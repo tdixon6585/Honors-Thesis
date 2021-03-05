@@ -8,12 +8,9 @@ Created on Tue Feb 16 18:53:05 2021
 
 
 import numpy as np
-#import matplotlib.pyplot as plt
 import tensorflow as tf
 from tensorflow import keras
 import RK4_numba as RK4
-import random
-import time
 
 r = RK4.Rocket()
 
@@ -21,11 +18,6 @@ dAngle = 0.01*np.pi
 dThrottle = 0.05
 dt = 0.1
 
-#R = []
-#RX = []
-#RY = []
-#V = []
-#Fuel = []
 
 def step(r, action):
     pt_vars = np.array([r.rx, r.ry, r.vx, r.vy, r.fuelm], dtype=np.float32)
@@ -82,35 +74,9 @@ def step(r, action):
     
     return r, done
 
-'''
-actions = {
-(+throttle, +angle),
-(+throttle, -angle),
-(-throttle, +angle),
-(-throttle, -angle),
-(do nothing)
-}
-'''
-k = 10000
 
 
-def reward_1(state):
-    rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
-    
-    x = np.sqrt(rx**2+ry**2)
-    v = np.sqrt(vx**2+vy**2)
-    
-    rw_x = 1/(1+np.exp(-0.00004*(x-r.karman)))
-    rw_v = 1/(1+np.exp(-0.001*(v-7790/2)))
-    rw_m = 0  #0.1*m/r.mi
-    
-    punish = 0
-    if np.sqrt(r.rx**2+r.ry**2) < r.sea:
-        punish = -2
-    
-    return rw_x + rw_v + rw_m + punish
-
-def reward_2(state):
+def reward(state):
     rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
     
     x = np.sqrt(rx**2+ry**2)
@@ -118,16 +84,7 @@ def reward_2(state):
     rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
     punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
     
-    return k*rw_x + k*punish
-
-def reward_3(state):
-    rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
-    
-    x = np.sqrt(rx**2+ry**2)
-    
-    rw_x = np.exp(-1*(x-r.sea-200000)**2/(5*40000**2))
-    
-    return rw_x
+    return rw_x + punish
 
 
 inputs = keras.Input(shape=(8))
@@ -158,7 +115,8 @@ def train(replay_memory, batch_size):
         a = m['a']
         r = m['r']
         done = m['done']
-        if not done:  target = r + discount_factor * np.max(q_s_p)
+        
+        if not done:  target = r + discount_factor * np.max(q_s_p[i])
         else:         target = r
         targets[i][a] = target
 
@@ -167,9 +125,9 @@ def train(replay_memory, batch_size):
 
 
 
-epochs = 300
+epochs = 500
 greed = 1
-greed_decay = 0.002
+greed_decay = 0.001
 discount_factor = 0.999
 
 replay_memory = []
@@ -208,7 +166,7 @@ for i in range(epochs):
         r, done = step(r, action)
 
         new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
-        reward = reward_2(state)
+        reward = reward(state)
         rewards.append(reward)
         
         if len(replay_memory) > max_mem_size:
@@ -220,8 +178,8 @@ for i in range(epochs):
         all_loss.append(l)
             
         
-    all_rewards.append(sum(rewards))
-    print('Reward: ', sum(rewards))
+    all_rewards.append(np.mean(rewards))
+    print('Reward: ', np.mean(rewards))
     if i % 10 == 0:
         all_RX.append(RX)
         all_RY.append(RY)
