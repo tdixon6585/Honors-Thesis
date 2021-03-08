@@ -84,7 +84,7 @@ def reward_function(state):
     rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
     punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
     
-    return rw_x + punish
+    return rw_x + punish - 1
 
 
 inputs = keras.Input(shape=(8))
@@ -124,8 +124,35 @@ def train(replay_memory, batch_size):
     return model, h.history['loss'][0]
 
 
+def test(model):
+    r = RK4.Rocket()
+    state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
+    
+    RX = []
+    RY = []
+    rewards = []
 
-epochs = 500
+    done = False
+
+    while not done:
+        action = np.argmax(model.predict(state))
+            
+        RX.append(r.rx)
+        RY.append(r.ry)
+            
+        r, done = step(r, action)
+
+        new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
+        reward = reward_function(state)
+        rewards.append(reward)
+        
+        state = new_state            
+    
+    print('Test Reward: ', np.mean(rewards))
+    return RX, RY, np.mean(rewards)
+
+
+epochs = 100
 greed = 1
 greed_decay = 0.001
 discount_factor = 0.999
@@ -133,11 +160,16 @@ discount_factor = 0.999
 replay_memory = []
 max_mem_size = 100000
 batch_size = 32
+#LARGER BATCH SIZE WAS SUGGESTED
 
 all_RX = []
 all_RY = []
 all_rewards =[]
 all_loss = []
+
+test_RX = []
+test_RY = []
+test_rewards =[]
 
 for i in range(epochs):
     print("EPOCH: ", i)
@@ -153,8 +185,7 @@ for i in range(epochs):
 
     done = False
 
-    while not done:
-    
+    while not done:    
         if np.random.random() < greed:
             action = np.random.randint(0, 5)
         else:
@@ -176,21 +207,33 @@ for i in range(epochs):
         model, l = train(replay_memory, batch_size)
         state = new_state
         all_loss.append(l)
+        
+        
             
         
     all_rewards.append(np.mean(rewards))
     print('Reward: ', np.mean(rewards))
     if i % 10 == 0:
+        tRX, tRY, treward = test(model)
+        test_RX.append(tRX)
+        test_RY.append(tRY)
+        test_rewards.append(treward)
+        
         all_RX.append(RX)
         all_RY.append(RY)
         
 
+path = ''
         
-model.save('./Model_Q_Learning.ms')
-np.savetxt('all_RX.txt', all_RX, fmt='%s')
-np.savetxt('all_RY.txt', all_RY, fmt='%s')
-np.savetxt('all_rewards.txt', all_rewards, fmt='%s')
-np.savetxt('all_loss.txt', all_loss, fmt='%s')
+model.save(f'.{path}/Model_Q_Learning.ms')
+np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')
+np.savetxt(f'.{path}/all_RY.txt', all_RY, fmt='%s')
+np.savetxt(f'.{path}/all_rewards.txt', all_rewards, fmt='%s')
+np.savetxt(f'.{path}/all_loss.txt', all_loss, fmt='%s')
+
+np.savetxt(f'.{path}/test_RX.txt', test_RX, fmt='%s')
+np.savetxt(f'.{path}/test_RY.txt', test_RY, fmt='%s')
+np.savetxt(f'.{path}/test_rewards.txt', test_rewards, fmt='%s')
 
 
 
