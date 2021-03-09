@@ -84,7 +84,7 @@ def reward_function(state):
     rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
     punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
     
-    return rw_x + punish - 1
+    return rw_x + punish + 1
 
 
 inputs = keras.Input(shape=(8))
@@ -155,6 +155,8 @@ def train(replay_memory, batch_size):
         if not done:  target = r + discount_factor * q_s_p_ba[i]
         else:         target = r
         targets[i][a] = target
+    #print(target)
+    #print(targets[0])
 
     h = model.fit(s, targets, epochs=1, verbose=0)
     return model, h.history['loss'][0]
@@ -187,9 +189,9 @@ def test(model):
     return RX, RY, np.mean(rewards)
 
 epochs = 100
-greed = 1
-greed_decay = 0.0001
-discount_factor = 0.999
+greed = .01 #1
+greed_decay = 0 #0.0001
+discount_factor = 0.99
 
 replay_memory = []
 max_mem_size = 10000
@@ -263,7 +265,7 @@ for i in range(epochs):
         all_RX.append(RX)
         all_RY.append(RY)
         
-path = ''
+path = '/NG'
         
 model.save(f'.{path}/Model_Q_Learning.ms')
 np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')
