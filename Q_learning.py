@@ -84,7 +84,7 @@ def reward_function(state):
     rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
     punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
     
-    return rw_x + punish - 1
+    return rw_x + punish + 1
 
 
 inputs = keras.Input(shape=(8))
@@ -101,7 +101,10 @@ model.compile(optimizer=tf.keras.optimizers.Adam(),
 
 
 def train(replay_memory, batch_size):
-    batch = np.random.choice(replay_memory, batch_size, replace=True)
+    if len(replay_memory) < batch_size:
+        batch = np.random.choice(replay_memory, len(replay_memory), replace=False)
+    else:
+        batch = np.random.choice(replay_memory, batch_size, replace=False)
     
     s_p = np.array(list(map(lambda x: x['s_p'], batch)))
     s = np.array(list(map(lambda x: x['s'], batch)))
@@ -173,7 +176,7 @@ def test(model):
 epochs = 100
 greed = 1
 greed_decay = 0.0001
-discount_factor = 0.999
+discount_factor = 0.99
 
 replay_memory = []
 max_mem_size = 10000
@@ -238,7 +241,7 @@ for i in range(epochs):
         all_RY.append(RY)
         
 
-path = ''
+path = '/NT'
         
 model.save(f'.{path}/Model_Q_Learning.ms')
 np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')

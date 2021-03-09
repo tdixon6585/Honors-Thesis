@@ -86,15 +86,28 @@ def reward_function(state):
     
     return rw_x + punish + 1
 
-
+'''
 inputs = keras.Input(shape=(8))
 x = keras.layers.Dense(64, activation="relu")(inputs)
 x = keras.layers.Dense(32, activation="relu")(x)
 outputs = keras.layers.Dense(5, activation="linear")(x)
+'''
 
-model = keras.Model(inputs=inputs, outputs=outputs)
 
-target_model = keras.Model(inputs=inputs, outputs=outputs)
+model = keras.Sequential()
+model.add(keras.layers.Dense(64, activation="relu", input_shape=(8,)))
+model.add(keras.layers.Dense(32, activation="relu"))
+model.add(keras.layers.Dense(5, activation="linear"))
+
+target_model = keras.Sequential()
+target_model.add(keras.layers.Dense(64, activation="relu", input_shape=(8,)))
+target_model.add(keras.layers.Dense(32, activation="relu"))
+target_model.add(keras.layers.Dense(5, activation="linear"))
+
+
+#model = keras.Model(inputs=inputs, outputs=outputs)
+
+#target_model = keras.Model(inputs=inputs, outputs=outputs)
 
 model.compile(optimizer=tf.keras.optimizers.Adam(),
               loss="mean_squared_error")
@@ -102,11 +115,15 @@ model.compile(optimizer=tf.keras.optimizers.Adam(),
 target_model.compile(optimizer=tf.keras.optimizers.Adam(),
               loss="mean_squared_error")
 
+
 target_model.set_weights(model.get_weights())
 
 
 def train(replay_memory, batch_size):
-    batch = np.random.choice(replay_memory, batch_size, replace=True)
+    if len(replay_memory) < batch_size:
+        batch = np.random.choice(replay_memory, len(replay_memory), replace=False)
+    else:
+        batch = np.random.choice(replay_memory, batch_size, replace=False)
     
     s_p = np.array(list(map(lambda x: x['s_p'], batch)))
     s = np.array(list(map(lambda x: x['s'], batch)))
@@ -189,8 +206,8 @@ def test(model):
     return RX, RY, np.mean(rewards)
 
 epochs = 100
-greed = .01 #1
-greed_decay = 0 #0.0001
+greed = 1
+greed_decay = 0.0001
 discount_factor = 0.99
 
 replay_memory = []
@@ -248,7 +265,7 @@ for i in range(epochs):
         c+=1
         
         if c % sync_target_steps == 0:
-            target_model.set_weights(model.get_weights())
+            target_model.set_weights(model.get_weights())            
         
         state = new_state
         all_loss.append(l)
@@ -265,7 +282,7 @@ for i in range(epochs):
         all_RX.append(RX)
         all_RY.append(RY)
         
-path = '/NG'
+path = '/T'
         
 model.save(f'.{path}/Model_Q_Learning.ms')
 np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')
