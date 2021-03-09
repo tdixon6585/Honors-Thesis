@@ -106,6 +106,24 @@ def train(replay_memory, batch_size):
     s_p = np.array(list(map(lambda x: x['s_p'], batch)))
     s = np.array(list(map(lambda x: x['s'], batch)))
     
+    s[:,0] = s[:,0]/6478000
+    s[:,1] = s[:,1]/6478000
+    s[:,2] = s[:,2]/60000
+    s[:,3] = s[:,3]/60000
+    s[:,4] = s[:,4]/1420788
+    s[:,5] = s[:,5]
+    s[:,6] = s[:,6]/(2*np.pi)
+    s[:,7] = s[:,7]
+    
+    s_p[:,0] = s_p[:,0]/6478000
+    s_p[:,1] = s_p[:,1]/6478000
+    s_p[:,2] = s_p[:,2]/60000
+    s_p[:,3] = s_p[:,3]/60000
+    s_p[:,4] = s_p[:,4]/1420788
+    s_p[:,5] = s_p[:,5]
+    s_p[:,6] = s_p[:,6]/(2*np.pi)
+    s_p[:,7] = s_p[:,7]
+    
     q_s_p = model.predict(s_p)
 
     targets = model.predict(s)
@@ -154,13 +172,12 @@ def test(model):
 
 epochs = 100
 greed = 1
-greed_decay = 0.001
+greed_decay = 0.0001
 discount_factor = 0.999
 
 replay_memory = []
-max_mem_size = 100000
-batch_size = 32
-#LARGER BATCH SIZE WAS SUGGESTED
+max_mem_size = 10000
+batch_size = 128
 
 all_RX = []
 all_RY = []
@@ -207,13 +224,11 @@ for i in range(epochs):
         model, l = train(replay_memory, batch_size)
         state = new_state
         all_loss.append(l)
-        
-        
             
         
     all_rewards.append(np.mean(rewards))
     print('Reward: ', np.mean(rewards))
-    if i % 10 == 0:
+    if i % 1 == 0:
         tRX, tRY, treward = test(model)
         test_RX.append(tRX)
         test_RY.append(tRY)

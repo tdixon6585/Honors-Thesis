@@ -84,7 +84,7 @@ def reward_function(state):
     rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
     punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
     
-    return rw_x + punish
+    return rw_x + punish - 1
 
 
 inputs = keras.Input(shape=(8))
@@ -111,6 +111,24 @@ def train(replay_memory, batch_size):
     s_p = np.array(list(map(lambda x: x['s_p'], batch)))
     s = np.array(list(map(lambda x: x['s'], batch)))
     
+    s[:,0] = s[:,0]/6478000
+    s[:,1] = s[:,1]/6478000
+    s[:,2] = s[:,2]/60000
+    s[:,3] = s[:,3]/60000
+    s[:,4] = s[:,4]/1420788
+    s[:,5] = s[:,5]
+    s[:,6] = s[:,6]/(2*np.pi)
+    s[:,7] = s[:,7]
+    
+    s_p[:,0] = s_p[:,0]/6478000
+    s_p[:,1] = s_p[:,1]/6478000
+    s_p[:,2] = s_p[:,2]/60000
+    s_p[:,3] = s_p[:,3]/60000
+    s_p[:,4] = s_p[:,4]/1420788
+    s_p[:,5] = s_p[:,5]
+    s_p[:,6] = s_p[:,6]/(2*np.pi)
+    s_p[:,7] = s_p[:,7]
+    
     
     #Potentially impliment Double DQN
     # Use the main model to make the future choice 
@@ -120,8 +138,12 @@ def train(replay_memory, batch_size):
     #  q_s_p = target_model.predict(s_p)
     #  make q_s_p only contains the actions chosen from the main model
     #  np.max is no longer necessary
+    best_actions = model.predict(s_p)
+    ba_i = np.argmax(best_actions, 1)
+    
     q_s_p = target_model.predict(s_p)
-
+    
+    q_s_p_ba = [q_s_p[i][ba_i[i]] for i in range(len(q_s_p))]
     targets = target_model.predict(s)
 
     
@@ -130,7 +152,7 @@ def train(replay_memory, batch_size):
         r = m['r']
         done = m['done']
         
-        if not done:  target = r + discount_factor * np.max(q_s_p[i])
+        if not done:  target = r + discount_factor * q_s_p_ba[i]
         else:         target = r
         targets[i][a] = target
 
@@ -166,13 +188,12 @@ def test(model):
 
 epochs = 100
 greed = 1
-greed_decay = 0.001
+greed_decay = 0.0001
 discount_factor = 0.999
 
 replay_memory = []
-max_mem_size = 100000
-batch_size = 32
-#LARGER BATCH SIZE WAS SUGGESTED
+max_mem_size = 10000
+batch_size = 128
 
 sync_target_steps = 10000
 
@@ -233,7 +254,7 @@ for i in range(epochs):
         
     all_rewards.append(np.mean(rewards))
     print('Reward: ', np.mean(rewards))
-    if i % 10 == 0:
+    if i % 1 == 0:
         tRX, tRY, treward = test(model)
         test_RX.append(tRX)
         test_RY.append(tRY)
