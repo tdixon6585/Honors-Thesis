@@ -14,7 +14,7 @@ import RK4_numba as RK4
 
 r = RK4.Rocket()
 
-dAngle = 0.25*np.pi
+dAngle = 0.10*np.pi
 dThrottle = 0.05
 dt = 0.1
 
@@ -61,7 +61,7 @@ def step(r, action):
     return r, done
 
 
-
+'''
 def reward_function(state):
     rx, ry, vx, vy, angle = state[0]
     
@@ -70,6 +70,18 @@ def reward_function(state):
     rw_x = 0.00001*(x-r.sea)
     
     return rw_x
+'''
+
+
+def reward_function(state):
+    rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
+    
+    x = np.sqrt(rx**2+ry**2)
+    
+    rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
+    punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
+    
+    return rw_x + punish + 1
 
 
 inputs = keras.Input(shape=(5))
