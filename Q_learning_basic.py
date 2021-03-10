@@ -74,7 +74,7 @@ def reward_function(state):
 
 
 def reward_function(state):
-    rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
+    rx, ry, vx, vy, angle = state[0]
     
     x = np.sqrt(rx**2+ry**2)
     
