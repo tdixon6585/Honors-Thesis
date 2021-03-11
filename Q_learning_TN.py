@@ -155,15 +155,20 @@ def train(replay_memory, batch_size):
     #  q_s_p = target_model.predict(s_p)
     #  make q_s_p only contains the actions chosen from the main model
     #  np.max is no longer necessary
+
+    q_s_p = target_model.predict(s_p)
     best_actions = model.predict(s_p)
     ba_i = np.argmax(best_actions, 1)
-    
-    q_s_p = target_model.predict(s_p)
-    
-    q_s_p_ba = [q_s_p[i][ba_i[i]] for i in range(len(q_s_p))]
-    targets = target_model.predict(s)
 
     
+
+    
+    q_s_p_ba = [q_s_p[i][ba_i[i]] for i in range(len(q_s_p))]
+
+    #targets = target_model.predict(s)
+    targets = model.predict(s)
+
+
     for i,m in enumerate(batch): 
         a = m['a']
         r = m['r']
@@ -172,10 +177,11 @@ def train(replay_memory, batch_size):
         if not done:  target = r + discount_factor * q_s_p_ba[i]
         else:         target = r
         targets[i][a] = target
-    #print(target)
-    #print(targets[0])
+
 
     h = model.fit(s, targets, epochs=1, verbose=0)
+    
+
     return model, h.history['loss'][0]
 
 def test(model):
@@ -205,14 +211,15 @@ def test(model):
     print('Test Reward: ', np.mean(rewards))
     return RX, RY, np.mean(rewards)
 
-epochs = 100
+epochs = 1000
 greed = 1
 greed_decay = 0.0001
 discount_factor = 0.99
 
 replay_memory = []
-max_mem_size = 10000
-batch_size = 128
+max_mem_size = 100000
+batch_size = 64
+min_mem_size = batch_size
 
 sync_target_steps = 10000
 
@@ -256,11 +263,13 @@ for i in range(epochs):
         reward = reward_function(state)
         rewards.append(reward)
         
-        if len(replay_memory) > max_mem_size:
-            replay_memory.pop(0)
+        if len(replay_memory) >= max_mem_size:
+            replay_memory.pop(0)  
         replay_memory.append({'s': state[0], 'a': action, 'r': reward, "s_p": new_state[0], 'done': done})
         
-        model, l = train(replay_memory, batch_size)
+        if len(replay_memory) > min_mem_size:
+            model, l = train(replay_memory, batch_size)
+            all_loss.append(l)
         
         c+=1
         
@@ -268,13 +277,12 @@ for i in range(epochs):
             target_model.set_weights(model.get_weights())            
         
         state = new_state
-        all_loss.append(l)
-            
         
     all_rewards.append(np.mean(rewards))
     print('Reward: ', np.mean(rewards))
     if i % 1 == 0:
         tRX, tRY, treward = test(model)
+
         test_RX.append(tRX)
         test_RY.append(tRY)
         test_rewards.append(treward)
@@ -282,7 +290,7 @@ for i in range(epochs):
         all_RX.append(RX)
         all_RY.append(RY)
         
-path = '/T'
+path = '/T-Model'
         
 model.save(f'.{path}/Model_Q_Learning.ms')
 np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')
