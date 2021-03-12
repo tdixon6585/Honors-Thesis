@@ -81,7 +81,11 @@ def reward_function(state):
     rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
     punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
     
-    return rw_x + punish + 1
+    rew = rw_x + punish + 1
+    if np.sqrt(r.rx**2+r.ry**2) <= r.sea:
+        rew = -100
+    
+    return rew
 
 
 inputs = keras.Input(shape=(5))
