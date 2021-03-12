@@ -165,7 +165,6 @@ def train(replay_memory, batch_size):
     
     q_s_p_ba = [q_s_p[i][ba_i[i]] for i in range(len(q_s_p))]
 
-    #targets = target_model.predict(s)
     targets = model.predict(s)
 
 
@@ -221,7 +220,7 @@ max_mem_size = 100000
 batch_size = 64
 min_mem_size = batch_size
 
-sync_target_steps = 10000
+sync_target_steps = 1 #simulations
 
 all_RX = []
 all_RY = []
@@ -271,13 +270,13 @@ for i in range(epochs):
             model, l = train(replay_memory, batch_size)
             all_loss.append(l)
         
-        c+=1
-        
-        if c % sync_target_steps == 0:
-            target_model.set_weights(model.get_weights())            
-        
         state = new_state
         
+    c+=1
+        
+    if c % sync_target_steps == 0:
+        target_model.set_weights(model.get_weights()) 
+    
     all_rewards.append(np.mean(rewards))
     print('Reward: ', np.mean(rewards))
     if i % 1 == 0:
@@ -290,7 +289,7 @@ for i in range(epochs):
         all_RX.append(RX)
         all_RY.append(RY)
         
-path = '/T-Model'
+path = '/T'
         
 model.save(f'.{path}/Model_Q_Learning.ms')
 np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')

@@ -220,7 +220,7 @@ for i in range(epochs):
         reward = reward_function(state)
         rewards.append(reward)
         
-        if len(replay_memory) > max_mem_size:
+        if len(replay_memory) >= max_mem_size:
             replay_memory.pop(0)
         replay_memory.append({'s': state[0], 'a': action, 'r': reward, "s_p": new_state[0], 'done': done})
         
