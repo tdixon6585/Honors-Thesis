@@ -75,7 +75,7 @@ def step(r, action):
     return r, done
 
 
-
+'''
 def reward_function(state):
     rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
     
@@ -88,6 +88,17 @@ def reward_function(state):
     if np.sqrt(r.rx**2+r.ry**2) <= r.sea:
         rew = -100
     
+    return rew
+'''
+
+def reward_function(state):
+    rx, ry, vx, vy, m, has_staged, angle, throttle = state[0]
+    
+    x = np.sqrt(rx**2+ry**2)
+    
+    rew = 1
+    if x <= r.sea:
+        rew = -1
     return rew
 
 '''
@@ -163,9 +174,6 @@ def train(replay_memory, batch_size):
     q_s_p = target_model.predict(s_p)
     best_actions = model.predict(s_p)
     ba_i = np.argmax(best_actions, 1)
-
-    
-
     
     q_s_p_ba = [q_s_p[i][ba_i[i]] for i in range(len(q_s_p))]
 
@@ -211,20 +219,20 @@ def test(model):
         
         state = new_state            
     
-    print('Test Reward: ', np.mean(rewards))
-    return RX, RY, np.mean(rewards)
+    print('Test Reward: ', np.sum(rewards))
+    return RX, RY, np.sum(rewards)
 
-epochs = 1000
-greed = 1
-greed_decay = 0.0001
+epochs = 40
+greed = 0.1
+greed_decay = 0#1e-5
 discount_factor = 0.99
 
 replay_memory = []
 max_mem_size = 100000
-batch_size = 64
+batch_size = 20
 min_mem_size = batch_size
 
-sync_target_steps = 1 #simulations
+sync_target_steps = 10000 
 
 all_RX = []
 all_RY = []
@@ -238,12 +246,8 @@ test_rewards =[]
 c = 0
 
 for i in range(epochs):
-    print("EPOCH: ", i)
-    print("replay_memory: ", len(replay_memory))
     r = RK4.Rocket()
     state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
-    if greed > 0.01:
-        greed -= greed_decay
     
     RX = []
     RY = []
@@ -252,6 +256,10 @@ for i in range(epochs):
     done = False
 
     while not done:
+        c+=1
+        if greed > 0.01:
+            greed -= greed_decay
+        
         if np.random.random() < greed:
             action = np.random.randint(0, 5)
         else:
@@ -276,19 +284,17 @@ for i in range(epochs):
         
         state = new_state
         
-    c+=1
-        
-    if c % sync_target_steps == 0:
-        target_model.set_weights(model.get_weights()) 
+        if c % sync_target_steps == 0:
+            target_model.set_weights(model.get_weights()) 
     
-    all_rewards.append(np.mean(rewards))
-    print('Reward: ', np.mean(rewards))
+    all_rewards.append(np.sum(rewards))
+    print("EPOCH: ", i, 'Exploration: ', greed, 'Reward: ', np.sum(rewards))
     if i % 1 == 0:
-        tRX, tRY, treward = test(model)
+        #tRX, tRY, treward = test(model)
 
-        test_RX.append(tRX)
-        test_RY.append(tRY)
-        test_rewards.append(treward)
+        #test_RX.append(tRX)
+        #test_RY.append(tRY)
+        #test_rewards.append(treward)
         
         all_RX.append(RX)
         all_RY.append(RY)

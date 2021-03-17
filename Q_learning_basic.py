@@ -72,7 +72,7 @@ def reward_function(state):
     return rw_x
 '''
 
-
+'''
 def reward_function(state):
     rx, ry, vx, vy, angle = state[0]
     
@@ -82,11 +82,14 @@ def reward_function(state):
     punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
     
     rew = rw_x + punish + 1
-    if np.sqrt(r.rx**2+r.ry**2) <= r.sea:
+    if x <= r.sea:
         rew = -100
     
     return rew
-
+'''
+def reward_function(state):
+    rew = 1
+    return rew
 
 inputs = keras.Input(shape=(5))
 x = keras.layers.Dense(32, activation="relu")(inputs)
@@ -122,13 +125,13 @@ def test(model):
         
         state = new_state            
     
-    print('Test Reward: ', np.mean(rewards))
-    return RX, RY, np.mean(rewards)
+    print('Test Reward: ', np.sum(rewards))
+    return RX, RY, np.sum(rewards)
 
 
 epochs = 100
 greed = 1
-greed_decay = 0 #0.001
+greed_decay = 0.0002
 discount_factor = 0.99
 
 all_RX = []
@@ -141,12 +144,8 @@ test_RY = []
 test_rewards =[]
 
 for i in range(epochs):
-    print("EPOCH: ", i)
     r = RK4.Rocket()
     state = np.array([[r.rx, r.ry, r.vx, r.vy, r.input_vars[0]]])
-    
-    if greed > 0.01:
-        greed -= greed_decay
     
     RX = []
     RY = []
@@ -155,6 +154,9 @@ for i in range(epochs):
     done = False
 
     while not done:  
+        if greed > 0.01:
+            greed -= greed_decay
+            
         if np.random.random() < greed:
             action = np.random.randint(0, 3)
         else:
@@ -177,27 +179,26 @@ for i in range(epochs):
         else:         target = reward
         targets[0][action] = target
         
-        #print(target)
-        #print(targets)
         h = model.fit(state, targets, epochs=1, verbose=0)
         l = h.history['loss'][0]
     
         state = new_state
         all_loss.append(l)
         
-    all_rewards.append(np.mean(rewards))
-    print('Reward: ', np.mean(rewards))
+    all_rewards.append(np.sum(rewards))
+    print("EPOCH: ", i, 'Exploration: ', greed, 'Reward: ', np.sum(rewards))
     if i % 1 == 0:
-        tRX, tRY, treward = test(model)
-        test_RX.append(tRX)
-        test_RY.append(tRY)
-        test_rewards.append(treward)
+        #tRX, tRY, treward = test(model)
+        #test_RX.append(tRX)
+        #test_RY.append(tRY)
+        #test_rewards.append(treward)
         
         all_RX.append(RX)
         all_RY.append(RY)
         
+#%%
 
-path = '/basic'
+path = '/basic-stayup'
         
 model.save(f'.{path}/Model_Q_Learning.ms')
 np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')
