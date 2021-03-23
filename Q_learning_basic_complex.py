@@ -15,7 +15,7 @@ import RK4_numba as RK4
 r = RK4.Rocket()
 
 dAngle = 0.10*np.pi
-dThrottle = 0.05
+dThrottle = 0.25
 dt = 0.5
 
 
@@ -24,14 +24,27 @@ def step(r, action):
     
     angle, throttle, staged = r.input_vars
     
+    #React to the action
     if action == 0:
         angle += dAngle
     elif action == 1:
         angle -= dAngle
     elif action == 2:
+        throttle += dThrottle
+    elif action == 3:
+        throttle -= dThrottle
+    elif action == 4:
         angle = angle
+        throttle = throttle
+    elif action == 5:
+        staged = 1
     else:
         print("NO ACTION SELECTED")
+        
+    if throttle > 1:
+        throttle = 1
+    elif throttle < 0:
+        throttle = 0
         
     if angle > 2*np.pi:
         angle = angle - 2*np.pi
@@ -92,41 +105,9 @@ def step(r, action):
     return r, done, status, calc_per, calc_ap
 
 
-'''
-def reward_function(state):
-    rx, ry, vx, vy, angle = state[0]
-    
-    x = np.sqrt(rx**2+ry**2)
-    
-    rw_x = 0.00001*(x-r.sea)
-    
-    return rw_x
-'''
-
-'''
-def reward_function(state):
-    rx, ry, vx, vy, angle = state[0]
-    
-    x = np.sqrt(rx**2+ry**2)
-    
-    rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
-    punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
-    
-    rew = rw_x + punish + 1
-    if x <= r.sea:
-        rew = -100
-    
-    return rew
-'''
-'''
-def reward_function(state):
-    rew = 1
-    return rew
-'''
-
 def reward_function(state, status, calc_per, calc_ap):
     
-    rx, ry, vx, vy, angle = state[0]
+    rx, ry, vx, vy, m, _, angle, throttle = state[0]
 
     v = np.sqrt(r.vx**2 + r.vy**2)
     rad = np.sqrt(r.rx**2 + r.ry**2)
@@ -146,11 +127,12 @@ def reward_function(state, status, calc_per, calc_ap):
     return rew
 
 
+action_space = 6
+state_space = 8
 
-
-inputs = keras.Input(shape=(5))
+inputs = keras.Input(shape=(state_space))
 x = keras.layers.Dense(32, activation="relu")(inputs)
-outputs = keras.layers.Dense(3, activation="linear")(x)
+outputs = keras.layers.Dense(action_space, activation="linear")(x)
 
 model = keras.Model(inputs=inputs, outputs=outputs)
 
@@ -159,39 +141,11 @@ model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-7),
 
 model.set_weights(np.array(model.get_weights())/10000)
 
-'''
-def test(model):
-    r = RK4.Rocket()
-    state = np.array([[r.rx, r.ry, r.vx, r.vy, r.input_vars[0]]])
-    
-    RX = []
-    RY = []
-    rewards = []
-
-    done = False
-
-    while not done:
-        action = np.argmax(model.predict(state))
-            
-        RX.append(r.rx)
-        RY.append(r.ry)
-            
-        r, done = step(r, action)
-
-        new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.input_vars[0]]])
-        reward = reward_function(state)
-        rewards.append(reward)
-        
-        state = new_state            
-    
-    print('Test Reward: ', np.sum(rewards))
-    return RX, RY, np.sum(rewards)
-'''
-
 def test():
     y = RK4.Rocket()
-    y_state = np.array([[y.rx, y.ry, y.vx, y.vy, y.input_vars[0]]])
-    print(model.predict(y_state))
+    y_state = np.array([[y.rx, y.ry, y.vx, y.vy, y.m, int(y.has_staged), y.input_vars[0], y.input_vars[1]]])
+    y_state_scaled = y_state
+    print(model.predict(y_state_scaled))
 
 
 epochs = 1
@@ -218,7 +172,7 @@ while greed >= 0.01 or w < 1000:
     i += 1
     
     r = RK4.Rocket()
-    state = np.array([[r.rx, r.ry, r.vx, r.vy, r.input_vars[0]]])
+    state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
     
     RX = []
     RY = []
@@ -231,7 +185,7 @@ while greed >= 0.01 or w < 1000:
             greed -= greed_decay
             
         if np.random.random() < greed:
-            action = np.random.randint(0, 3)
+            action = np.random.randint(0, action_space)
         else:
             action = np.argmax(model.predict(state))
             
@@ -240,7 +194,7 @@ while greed >= 0.01 or w < 1000:
             
         r, done, status, calc_per, calc_ap = step(r, action)
 
-        new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.input_vars[0]]])
+        new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
         reward = reward_function(state, status, calc_per, calc_ap)
         rewards.append(reward)
         
@@ -272,7 +226,7 @@ while greed >= 0.01 or w < 1000:
         
 #%%
 
-path = '/basic-per3'
+path = '/complex-per3'
         
 model.save(f'.{path}/Model_Q_Learning.ms')
 np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')

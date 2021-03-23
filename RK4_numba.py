@@ -130,6 +130,8 @@ class Rocket(object):
 
         #Recalculating the mass of the rocket after fuel loss
         Thrust=self.maxThrust-18.3765*p  #The total thrust changes as the air pressure changes
+        Thrust = throttle*Thrust
+        
         
         fuelm_loss_rate = 0
         if self.fuelm <= 0:
@@ -157,6 +159,9 @@ class Rocket(object):
         ax=(XThrust-Fgx+Dx)/self.m       #The x-acceleration is adding the x-forces and dividing by the rockets mass
         ay=(YThrust-Fgy+Dy)/self.m       #The y-acceleration is adding the y-forces and dividing by the rockets mass
 
+        #REMOVE THIS FOR ACCURATE MODEL
+        fuelm_loss_rate = 0
+        
         return_vars = np.array([self.vx,self.vy,ax,ay,fuelm_loss_rate], dtype=np.float32)
         return return_vars
     
@@ -170,7 +175,7 @@ class Rocket(object):
             self.has_staged = 1
             pt_vars = pt_vars[:-1]
             pt_vars = np.append(pt_vars,self.fuelm)
-            print(pt_vars)
+            #print(pt_vars)
         
         a = self.derivatives(pt_vars, input_vars) # Derivative at beginning (Euler)
 

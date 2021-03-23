@@ -25,26 +25,7 @@ def step(r, action):
     
     angle, throttle, staged = r.input_vars
     
-    '''
-    if action == 0:
-        angle += dAngle
-        throttle += dThrottle
-    elif action == 1:
-        angle -= dAngle
-        throttle += dThrottle
-    elif action == 2:
-        angle += dAngle
-        throttle -= dThrottle
-    elif action == 3:
-        angle -= dAngle
-        throttle -= dThrottle
-    elif action == 4:
-        angle = angle
-        throttle = throttle
-    else:
-        print("NO ACTION SELECTED")
-    '''
-    
+    #React to the action
     if action == 0:
         angle += dAngle
     elif action == 1:
@@ -56,35 +37,77 @@ def step(r, action):
     elif action == 4:
         angle = angle
         throttle = throttle
+    elif action == 5:
+        staged = 1
     else:
         print("NO ACTION SELECTED")
+        
+        
+    #Maintain throttle and angle numbers
+    if throttle > 1:
+        throttle = 1
+    elif throttle < 0:
+        throttle = 0
         
     if angle > 2*np.pi:
         angle = angle - 2*np.pi
     elif angle < 0:
         angle = angle + 2*np.pi
-
     
+        
+        
+        
+    #Find periapsis
+    min_per = 6478000 #karman line
+    
+    v = np.sqrt(r.vx**2 + r.vy**2)
+    rad = np.sqrt(r.rx**2 + r.ry**2)
+    
+    phi = np.abs(np.arctan(r.rx/(r.ry+1e-9)) - np.arctan(r.vy/(r.vx+1e-9)))
+    h = rad*v*np.cos(phi)
+    
+    mu = r.G * r.M
+    semimajor = ((2/rad)-((v**2)/mu))**-1
+    ecc = np.sqrt(1-(h**2/(semimajor*mu)))
+    
+    calc_per = semimajor*(1-ecc)
+    calc_ap = semimajor*(1+ecc)
+    esc_vel = np.sqrt(2*r.G*r.M/rad)
+
+    status = ''
+    
+    #ACHIEVED ORBIT
+    if v > esc_vel:
+        print("Escaped")
+        done = True
+        status = 'escaped'
+    elif (calc_per > min_per) and (v < esc_vel):
+        print('ORBIT-------------------------------------')
+        done = True
+        status = 'in_orbit'
     #OUT OF FUEL
-    if r.fuelm <= 0:
+    elif r.fuelm <= 0:
         print("Out Of Fuel")
         done = True
+        status = 'Out Of Fuel'
     #CRASHES
     elif np.sqrt(r.rx**2+r.ry**2) < r.sea:
         print("Crashed")
         done = True
+        status = 'Crashed'
     #TIME CUTOFF
-    elif r.t > 10000:
+    elif r.t > 5000:
         print("Time Limit")
+        status = 'Time Limit'
         done = True
-    #ACHIEVE ORBIT HERE DON"T FORGET TO INCLUDE THIS HERE 
     else:
         done = False
         
     r.input_vars = np.array([angle, throttle, staged], dtype=np.float32)
-    r.RK4_step(pt_vars, dt, r.input_vars)
+    pt_vars = r.RK4_step(pt_vars, dt, r.input_vars)
+    r.rx, r.ry, r.vx, r.vy, r.fuelm = pt_vars
     
-    return r, done
+    return r, done, status, calc_per, calc_ap
 
 '''
 def reward_function(state):
@@ -123,7 +146,17 @@ perfect:
 
 '''
 
-def reward_function(state):
+'''
+def reward_function(state, status):
+    if status == 'in_orbit':
+        return 100000
+    elif status == 'Out Of Fuel':
+        return -10
+    elif status == 'Crashed':
+        return -100
+    elif status == 'Time Limit':
+        return 0
+    
     rx, ry, vx, vy, m, _, angle, throttle = state[0]
     
     rad = np.sqrt(rx**2+ry**2)
@@ -145,8 +178,53 @@ def reward_function(state):
     
     rew = rw_x + punish + 1 + rw_vy + rw_vx
     return rew
+'''
 
-action_space = 5
+def reward_function(state, status, calc_per, calc_ap):
+    
+    rx, ry, vx, vy, m, _, angle, throttle = state[0]
+    
+    #diff = np.abs(calc_per - calc_ap)
+    
+    #rew = 20*np.exp(-0.000001*(diff-r.sea))
+    
+    v = np.sqrt(r.vx**2 + r.vy**2)
+    rad = np.sqrt(r.rx**2 + r.ry**2)
+    
+    phi = np.abs(np.arctan(r.rx/(r.ry+1e-9)) - np.arctan(r.vy/(r.vx+1e-9)))
+    h = rad*v*np.cos(phi)
+    
+    mu = r.G * r.M
+    semimajor = ((2/rad)-((v**2)/mu))**-1
+    ecc = np.sqrt(1-(h**2/(semimajor*mu)))
+    
+    calc_new_per = semimajor*(1-ecc)
+    #calc_new_ap = semimajor*(1+ecc)
+    
+    #new_diff = np.abs(calc_new_per - calc_new_ap)
+    
+    '''
+    if new_diff < diff:
+        rew = 1
+    elif new_diff > diff:
+        rew = -1
+    else:
+        rew = 0
+    '''
+    '''
+    if calc_per < calc_new_per:
+        rew = 1
+    elif calc_per > calc_new_per:
+        rew = -1
+    else:
+        rew = 0
+    '''
+    per_diff = calc_new_per - calc_per
+    rew = per_diff/1e3
+    
+    return rew
+
+action_space = 6
 state_space = 8
 
 def make_Network():
@@ -230,10 +308,11 @@ def test():
 
 epochs = 1
 greed = 1 
-greed_decay = 0.00001
 #greed_decay = 0.0003
+greed_decay = 0.00001
+#greed_decay = 0.00001
 #discount_factor = 0.999
-discount_factor = 0.995
+discount_factor = 0.999
 
 replay_memory = []
 max_mem_size = 1000000
@@ -241,7 +320,7 @@ batch_size = 128
 min_mem_size = batch_size
 
 #sync_target_steps = 50000
-sync_target_steps = 5000
+sync_target_steps = 1000
 
 all_RX = []
 all_RY = []
@@ -258,7 +337,7 @@ i = 0
 w = 0
 #for i in range(epochs):
 test()
-while greed >= 0.01 or w < 50:
+while greed >= 0.01 or w < 1000:
     if greed <= 0.01:
         w += 1
     i += 1
@@ -287,10 +366,10 @@ while greed >= 0.01 or w < 50:
         RX.append(r.rx)
         RY.append(r.ry)
             
-        r, done = step(r, action)
+        r, done, status, calc_per, calc_ap = step(r, action)
 
         new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.m, int(r.has_staged), r.input_vars[0], r.input_vars[1]]])
-        reward = reward_function(state)
+        reward = reward_function(state, status, calc_per, calc_ap)
         rewards.append(reward)
         
         if len(replay_memory) >= max_mem_size:
@@ -326,7 +405,7 @@ while greed >= 0.01 or w < 50:
         
 #%%
 
-path = '/Final1'
+path = '/Final-per3-stage'
         
 model.save(f'.{path}/Model_Q_Learning.ms')
 np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')

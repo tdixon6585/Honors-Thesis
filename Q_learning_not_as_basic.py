@@ -1,3 +1,4 @@
+
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
@@ -10,8 +11,8 @@ Created on Mon Mar  8 20:30:19 2021
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import backend as K
 import RK4_numba as RK4
+from tensorflow.keras import backend as K
 
 r = RK4.Rocket()
 
@@ -39,92 +40,127 @@ def step(r, action):
     elif angle < 0:
         angle = angle + 2*np.pi
 
+   #Find periapsis
+    min_per = 6478000 #karman line
     
+    v = np.sqrt(r.vx**2 + r.vy**2)
+    rad = np.sqrt(r.rx**2 + r.ry**2)
+    
+    phi = np.abs(np.arctan(r.rx/(r.ry+1e-9)) - np.arctan(r.vy/(r.vx+1e-9)))
+    h = rad*v*np.cos(phi)
+    
+    mu = r.G * r.M
+    semimajor = ((2/rad)-((v**2)/mu))**-1
+    ecc = np.sqrt(1-(h**2/(semimajor*mu)))
+    
+    calc_per = semimajor*(1-ecc)
+    calc_ap = semimajor*(1+ecc)
+    esc_vel = np.sqrt(2*r.G*r.M/rad)
+
+    status = ''
+    
+    #ACHIEVED ORBIT
+    if v > esc_vel:
+        print("Escaped")
+        done = True
+        status = 'escaped'
+    elif (calc_per > min_per) and (v < esc_vel):
+        print('ORBIT-------------------------------------')
+        done = True
+        status = 'in_orbit'
     #OUT OF FUEL
-    if r.fuelm <= 0:
+    elif r.fuelm <= 0:
         print("Out Of Fuel")
         done = True
+        status = 'Out Of Fuel'
     #CRASHES
     elif np.sqrt(r.rx**2+r.ry**2) < r.sea:
         print("Crashed")
         done = True
+        status = 'Crashed'
     #TIME CUTOFF
-    elif r.t > 100000:
+    elif r.t > 5000:
         print("Time Limit")
+        status = 'Time Limit'
         done = True
-    #ACHIEVE ORBIT HERE DON"T FORGET TO INCLUDE THIS HERE 
     else:
         done = False
         
     r.input_vars = np.array([angle, throttle, staged], dtype=np.float32)
-    r.RK4_step(pt_vars, dt, r.input_vars)
+    pt_vars = r.RK4_step(pt_vars, dt, r.input_vars)
+    r.rx, r.ry, r.vx, r.vy, r.fuelm = pt_vars
     
-    return r, done
+    return r, done, status, calc_per, calc_ap
 
 '''
 def reward_function(state):
     rew = 1
     return rew
 '''
-
 '''
 def reward_function(state):
     rx, ry, vx, vy, angle = state[0]
     
     x = np.sqrt(rx**2+ry**2)
     
-    
-    if x <= r.sea:
-        return 0
-    
-    
     rw_x = np.exp(-1*(x-r.sea-200000)**2/(2*40000**2))
     #punish = -np.exp(-1*(x-r.sea)**2/(2*30000**2))
     punish = 0.26*np.log(x-r.sea+1100)-2.8
     rew = rw_x + punish + 1
+    if x <= r.sea:
+        rew = 0
+    #USE NATURAL LOG NEAR THE SURFACE
+    # STEEP INCLINE AWAY FROM SURFACE
+    
     
     return rew
 '''
-
-'''
-
-perfect:
-    orbit = 200km from Earth surface
-    v_perfect = 7784.26
+def reward_function(state, status, calc_per, calc_ap):
     
-    vy = - v_perfect * rx/r
-    vx = v_perfect * ry/r
-
-
-'''
-
-def reward_function(state):
     rx, ry, vx, vy, angle = state[0]
     
-    rad = np.sqrt(rx**2+ry**2)
     
-    v_perfect = 7784.26
+    v = np.sqrt(r.vx**2 + r.vy**2)
+    rad = np.sqrt(r.rx**2 + r.ry**2)
     
-    vy_p = -v_perfect * rx/rad
-    vx_p = v_perfect * ry/rad
+    phi = np.abs(np.arctan(r.rx/(r.ry+1e-9)) - np.arctan(r.vy/(r.vx+1e-9)))
+    h = rad*v*np.cos(phi)
     
-    rw_vy = (np.exp(-1*(vy-vy_p)**2/((vy_p/2 + 2)**2)) + np.exp(-1*(vy-vy_p)**2/((vy_p/20 + 2)**2)) )/2
-        
-    rw_vx = (np.exp(-1*(vx-vx_p)**2/((vx_p/2 + 2)**2)) + np.exp(-1*(vx-vx_p)**2/((vx_p/20 + 2)**2)) )/2
-        
-    if rad <= r.sea:
-        return 0
+    mu = r.G * r.M
+    semimajor = ((2/rad)-((v**2)/mu))**-1
+    ecc = np.sqrt(1-(h**2/(semimajor*mu)))
     
-    rw_x = np.exp(-1*(rad-r.sea-200000)**2/(2*40000**2))
-    punish = 0.26*np.log(rad-r.sea+1100)-2.8
+    calc_new_per = semimajor*(1-ecc)
+
+    per_diff = calc_new_per - calc_per
+    rew = per_diff/1e3
     
-    rew = rw_x + punish + 1 + rw_vy + rw_vx
     return rew
 
+'''
+model = keras.Sequential()
+model.add(keras.layers.Dense(64, activation="relu", input_shape=(5,)))
+model.add(keras.layers.Dense(32, activation="relu"))
+model.add(keras.layers.Dense(3, activation="linear"))
+
+target_model = keras.Sequential()
+target_model.add(keras.layers.Dense(64, activation="relu", input_shape=(5,)))
+target_model.add(keras.layers.Dense(32, activation="relu"))
+target_model.add(keras.layers.Dense(3, activation="linear"))
+
+model.compile(optimizer=tf.keras.optimizers.Adam(),
+              loss="mean_squared_error")
+
+target_model.compile(optimizer=tf.keras.optimizers.Adam(),
+              loss="mean_squared_error")
+
+
+target_model.set_weights(model.get_weights())
+'''
+action_space = 3
+state_space = 5
 
 def make_Network():
-    action_space = 3
-    state_space = 5
     inputs = keras.Input(shape=(state_space))
     X = keras.layers.Dense(128, activation="relu")(inputs)
     X = keras.layers.Dense(64, activation="relu")(X)
@@ -146,42 +182,33 @@ def make_Network():
 model = make_Network()
 target_model = make_Network()
 
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-6),
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-7),
               loss="mean_squared_error")
 
-target_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-6),
+target_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-7),
               loss="mean_squared_error")
 
 model.set_weights(np.array(model.get_weights())/100)
 
 target_model.set_weights(model.get_weights())
 
-def scale(s):
-    #a = []
-    #a.append(s[:,0][0]/6478000)
-    #a.append(s[:,1][0]/6478000)
-    #a.append(s[:,2][0]/60000)
-    #a.append(s[:,3][0]/60000)
-    #a.append(s[:,4][0]/(2*np.pi))
-    #a = np.array([a])
-    return s#a
-
 def train(replay_memory, batch_size):
-    batch = np.random.choice(replay_memory, batch_size, replace=False)
+    if len(replay_memory) < batch_size:
+        batch = np.random.choice(replay_memory, len(replay_memory), replace=False)
+    else:
+        batch = np.random.choice(replay_memory, batch_size, replace=False)
     
     s_p = np.array(list(map(lambda x: x['s_p'], batch)))
     s = np.array(list(map(lambda x: x['s'], batch)))
-    
-    s = scale(s)
-    s_p = scale(s_p)
 
     q_s_p = target_model.predict(s_p)
     best_actions = model.predict(s_p)
     ba_i = np.argmax(best_actions, 1)
     
     q_s_p_ba = [q_s_p[i][ba_i[i]] for i in range(len(q_s_p))]
-    
+
     targets = model.predict(s)
+
 
     for i,m in enumerate(batch): 
         a = m['a']
@@ -192,6 +219,7 @@ def train(replay_memory, batch_size):
         else:         target = r
         targets[i][a] = target
 
+
     h = model.fit(s, targets, epochs=1, verbose=0)
     
 
@@ -200,22 +228,21 @@ def train(replay_memory, batch_size):
 def test():
     y = RK4.Rocket()
     y_state = np.array([[y.rx, y.ry, y.vx, y.vy, y.input_vars[0]]])
-    y_state_scaled = scale(y_state)
+    y_state_scaled = y_state
     print(model.predict(y_state_scaled), target_model.predict(y_state_scaled))
 
+
 epochs = 1
-greed = 1 
+greed = 1 # 0.01
 greed_decay = 0.00005
-#greed_decay = 0.0003
-discount_factor = 0.995
+discount_factor = 0.999
 
 replay_memory = []
 max_mem_size = 1000000
 batch_size = 128
 min_mem_size = batch_size
 
-#sync_target_steps = 50000
-sync_target_steps = 10
+sync_target_steps = 1
 
 all_RX = []
 all_RY = []
@@ -229,10 +256,11 @@ test_rewards =[]
 
 c = 0
 i = 0
+
 w = 0
 #for i in range(epochs):
 test()
-while greed >= 0.01 or w < 50:
+while greed >= 0.01 or w < 1000:
     if greed <= 0.01:
         w += 1
     i += 1
@@ -245,49 +273,38 @@ while greed >= 0.01 or w < 50:
 
     done = False
 
-    while not done: 
-    #for ww in range(1):
+    while not done:  
         c+=1
-        
+
         if greed > 0.01:
             greed -= greed_decay
 
         if np.random.random() < greed:
             action = np.random.randint(0, 3)
         else:
-            state_scaled = scale(state)
-            action = np.argmax(model.predict(state_scaled))
+            action = np.argmax(model.predict(state))
             
         RX.append(r.rx)
         RY.append(r.ry)
             
-        r, done = step(r, action)
+        r, done, status, calc_per, calc_ap = step(r, action)
 
         new_state = np.array([[r.rx, r.ry, r.vx, r.vy, r.input_vars[0]]])
-        reward = reward_function(state)
+        reward = reward_function(state, status, calc_per, calc_ap)
         rewards.append(reward)
         
         if len(replay_memory) >= max_mem_size:
             replay_memory.pop(0)  
-            
-        #Prioritized replay memory
-        #USE MODEL.EVALUATE TO CALCULATE LOSS OF NEW MEMORY
-        #CALCULATE PROBABILITY
-        #  SUM ALL LOSS, DIVIDE EACH BY TOTAL
-        #ADD TO REPLAY MEMORY
-        #PROBLEM: this loss changes when target is updated
-        #         Each probability changes every step: inefficient
         replay_memory.append({'s': state[0], 'a': action, 'r': reward, "s_p": \
                               new_state[0], 'done': done})
         
-        if len(replay_memory) >= min_mem_size:
+        if len(replay_memory) > min_mem_size:
             model, l = train(replay_memory, batch_size)
             all_loss.append(l)
     
         state = new_state
         
         if c % sync_target_steps == 0:
-            #print('UPDATED')
             target_model.set_weights(model.get_weights())
         
     print("EPOCH: ", i, 'Exploration: ', greed, 'Reward: ', np.sum(rewards))
@@ -295,12 +312,12 @@ while greed >= 0.01 or w < 50:
     if i % 1 == 0:
         all_RX.append(RX)
         all_RY.append(RY)
-    if i % 10 == 0: test()
+    if i % 5 == 0: test()
     
         
 #%%
 
-path = '/DDDQN6'
+path = '/notbasic-per2'
         
 model.save(f'.{path}/Model_Q_Learning.ms')
 np.savetxt(f'.{path}/all_RX.txt', all_RX, fmt='%s')

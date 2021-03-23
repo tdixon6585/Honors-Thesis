@@ -88,6 +88,7 @@ class Rocket(object):
 
         #Recalculating the mass of the rocket after fuel loss
         Thrust=self.maxThrust-18.3765*p  #The total thrust changes as the air pressure changes
+        Thrust = throttle*Thrust
         
         if self.fuelm <= 0:
             XThrust = 0
